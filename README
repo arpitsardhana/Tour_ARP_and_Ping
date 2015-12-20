@@ -1,0 +1,164 @@
+# Copyright (c) 2015 All Right Reserved, Arpit Singh(arpsingh@cs.stonybrook.edu),Ipshita Singha Roy(ipshita.singharoy@stonybrook.edu)
+# IP SSR with ARP and Ping is free program: you can redistribute it and/or modify
+# It under the terms of the GNU General Public License as published by
+# The Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Reliable File Transfer over is distributed in the hope that it will be useful,
+# But WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# for terms and conditions see, see <http://www.gnu.org/licenses/>.
+
+Created By              :               Arpit Singh, Ipshita Singha Roy
+Student Id              :               Arpit Singh (110162005), Ipshita Singha Roy (110284325)
+Date                    :               9 December 2015
+Summary -               :               IP SSRR functionality along with PING and ARP implemented. The projects consist of tour packet which visits given set of IP address registering every intermediate node to multicast group and pinging back the previous node
+
+
+****************************************************: USER DOCUMENTATION: ****************************************************
+In our assignment development we tried to module different functionality into different file. Following are the files used in an integrated and synchronised way to achieve the final output:
+
+arp.c -  The prime file responsible for initiating ARP functionalities to find the Ethernet address of the target node.
+
+tour.c - The prime file responsible for initiating tour ‘walk’ around an ordered list of nodes, in a manner similar
+to the IP SSRR (Strict Source and Record Route) option.
+
+tour_areq.c - The API file responsible for communication between the Tour process and the ARP process.
+
+utility.c - It is the utility file used by both arp and tour to implement their functionality.
+
+get_hw_addrs.c - This file is responsible for retrieving node’s interfaces and build a set of <IP address, HW address> matching pairs for all eth0 interface IP addresses.
+
+
+To compile the program, all of these files should be in the same folder with Makefile. The command used is:
+$make
+
+It will compile all these files and generate executives for all of them. To execute the program do the following steps:
+
+STEP 1 - Start ARP in all the vms. In each VM terminal write the following:
+$./arp_arpsingh
+
+STEP 2 - Start Tour in all the vms except source. In each VM terminal write the following:
+$./tour_arpsingh
+
+STEP 3 - Start tour on the source node with the vm names those are part of the tour. For example having a tour of "Vm1 Vm2 Vm3 Vm4 Vm3" following command should be given:
+$./tour_arpsingh Vm2 Vm3 Vm4 Vm3
+ 
+STEP 4 - Every node in the tour should display their PING and multicast messages.
+
+
+
+
+
+Features implemented:
+1. Tour maintains list of all IP address by obtaining IP of entered VMs
+2. It maintains current index as well as end index
+3. On every node, current index is incremented and packet is sent to next node in list
+4. In order to ping to previous nodes, Tour uses areq() which uses ARP to obtain destination ethernet address
+5. ARP broadcast ARP request and receives ARP reply for message
+6. It maintains ARP cache to store ethernet address
+7. Every node sends PING to previous node
+8. Every node that tour visits registers to multicast group
+9. When Tour completes, every node multicast its termination message.
+
+
+Design Details:
+
+
+ARP packet structure
+_____________________________________________________________________________________________
+       |        |          |    |       |      |     |     |       |    |       |    |       |
+DST MAC| SRC MAC|  PROTO_ID|  ID|  HTYPE| PTYPE| HLEN| PLEN| OPTION| THA| DST_IP| SHA| SRC_IP|
+_______|________|__________|____|_______|______|_____|_____|_______|____|_______|____|_______|
+
+DST_MAC------Destination MAC
+SRC_MAC------Source MAC
+PROTO_ID-----Protocol ID
+ID-----------ARP Unique ID
+HTYPE--------Hardware Type
+PTYPE--------Protocol TYPE 
+HLEN---------Hardware Length
+PLEN---------Protocol Length
+OPTION-------Options
+THA----------Target Hardware Address
+DST_IP-------Destination IP
+SHA----------Source Hardware Address 
+SRC_IP-------Source IP address
+
+ARP Cache entry structure:
+_______________________________________
+     |       |      |   |   |         |
+Valid| HWADDR| HTYPE| FD| IP| IF_INDEX|
+_____|_______|______|___|___|_________|
+
+Valid -------Entry is valid
+HWADDR-------Hardware Address
+HTYPE--------Hardware Type
+FD-----------File Descriptor
+IP-----------IP  address
+IF_INDEX-----Interface Index
+
+
+Ping Packet Stucture:
+______________
+|DST_MAC     |
+|____________|--------Destination Mac address
+|SRC_MAC     |
+|____________|--------Source Mac Address
+|PROTO_ID    | 
+|____________|--------Protocol ID
+|IP_HEADER   |
+|____________|--------IP header
+|ICMP_HEADER |
+|____________|--------ICMP Header
+
+
+        
+Tour Packet Structure
+______________
+|IP_HEADER   |
+|____________|-------IP Header
+|IP          |
+|____________|-------Multicast IP address
+|Port        |
+|____________|-------Multicast Port
+|INDEX       |
+|____________|-------Current Index
+|END_INDEX   |
+|____________|-------End Index
+|VM_LIST[20] |
+|____________|-------VM List
+
+
+***************************************************:SYSTEM DOCUMENTATION:****************************************************
+
+Features Implemented :
+
+Tour - In tour every packet is forwarded to the next node depending on the node mentioned in the tour list at source node. Every node upon receiving tour packet including source node registers itself to a multicast group. When the last node on the tour is reached, and if this is the first time it is visited, it joins the multicast group and starts pinging the preceding node. Tour requests ARP via areq() which has timeout of 5 second in case address is not received.
+
+ARP - The ARP module sits in an infinite loop, monitoring sockets for ARP request messages. Whenever an ARP request arrives the module processes them, and responds with ARP reply messages as appropriate. It receives/sends three messages:
+1. Local message from Tour - Tour asks address before pinging
+2. ARP Request - ARP request is broadcasted to all nodes to determine address
+3. ARP Reply  - On receiving ARP request, node replies by sending ARP packet. This packet is unicasted
+ARP also maintains cache of address and returns cached value, if request for stored address is received
+
+
+Ping - Every node upon receiving the ARP reply creates ping IP Packets and send ping messages to it previous nodes and receives ACK of ping receipt.
+
+Multicast - Once the tour reached the last node, it sends multicast message to all the nodes involved into the tour and all other nodes upon receiving multicast messaged identify themselves with another multicast message.
+
+
+****************************************************:TESTING DOCUMENTATION:**************************************************
+To test the application properly user can use the following commands:
+
+INPUT	:	$./arp_arpsingh
+EXPECTED OUTPUT	:ARP should start in corresponding node
+
+INPUT	:	$./tour_arpsingh
+EXPECTED OUTPUT	:Tour should start in corresponding node
+
+INPUT	:	$./tour_arpsingh vm2 vm3 vm4 
+EXPECTED OUTPUT	:Tour should start from the source to destination invoking ARP functionalities, Ping replies should be printed and at the tour end Vm4 should print "Tour has ended." and sent multicast messages to other nodes.
+
+**This implementation supports maximum of 50 tour nodes.
